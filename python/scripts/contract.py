@@ -9,8 +9,7 @@ class Contract:
         self.name = name
         self.source = source
         if isinstance(source, pathlib.Path):
-            with open(source, 'r') as file:
-                self.source = file.read()
+            self.source = Contract.read_contract(source)
         parsed = self.parse()
         contract_key = f"<stdin>:{self.name.split('.')[0].capitalize()}"
         self.all_formats = parsed[contract_key]
@@ -25,7 +24,7 @@ class Contract:
     
     def parse(self):
         # get version from source
-        version = re.search(r"pragma solidity \^?(\d+\.\d+\.\d+);", self.source).group(1)
+        version = Contract.get_contract_version(self.source)
         if version not in solcx.get_installed_solc_versions():
             print(f"Version {version} not installed, installing...")
             solcx.install_solc(version)
@@ -58,6 +57,18 @@ class Contract:
                     recursive_explore(child, level + 1)
         recursive_explore(self.ast)
         return functions, variables
+    
+    @staticmethod
+    def get_contract_version(path: pathlib.Path, source: str = None):
+        """Get the version of the contract"""
+        src = source if source is not None else Contract.read_contract(path)
+        version = re.search(r"pragma solidity \^?(\d+\.\d+\.\d+);", src).group(1)
+        return version
+    
+    @staticmethod
+    def read_contract(path: pathlib.Path):
+        with open(path, "r") as file:
+            return file.read()
 
 def main():
     contracts_dir = pathlib.Path(__file__).parent.parent.parent / "contracts"
