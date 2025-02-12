@@ -44,7 +44,7 @@ class Contract:
         def recursive_explore(node, level=0):
             nonlocal functions, variables
             if isinstance(node, dict):
-                print("  " * level + node.get("nodeType", ""))
+                # print("  " * level + node.get("nodeType", ""))
                 if "FunctionDefinition" in node.get("nodeType", ""):
                     functions.append(node.get("name", ""))
                 if "VariableDeclaration" in node.get("nodeType", ""):

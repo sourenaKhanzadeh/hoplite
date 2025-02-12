@@ -20,8 +20,23 @@ class Similarity:
     
     def check_contract_semantic_identicality(self):
         # get functions and variables from ast
-        for function in self.contract_a.all_formats["ast"]["functions"]:
-            print(function)
+        functs_a = set()
+        vars_a = set()
+        funcs, vars = self.contract_a.explore_ast()
+        for func, var in zip(funcs, vars):
+            functs_a.add(func)
+            vars_a.add(var)
+        funcs, vars = self.contract_b.explore_ast()
+        print(funcs, vars)
+        check_func = True
+        check_vars = True
+        for func, var in zip(funcs, vars):
+            if func not in functs_a:
+                check_func = False
+            if var not in vars_a:
+                check_vars = False
+
+        return check_func, check_vars
         
 
     
