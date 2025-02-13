@@ -59,22 +59,20 @@ class Node:
 
     def execute_contract(self, func_args_map={}):
         """
-        Executes all functions of the contract. 
-        If a function requires arguments, they should be provided in the `func_args_map` dictionary.
+        Executes all functions of the contract with correct argument unpacking.
         """
-        # ✅ Ensure contract is deployed before execution
         if self.contract is None:
             raise Exception("❌ Contract is not deployed! Execution cannot proceed.")
 
         account = self.w3.eth.accounts[0]
         results = {}
 
-        for func_name in self.contract.functions:
+        for func_name, args in func_args_map.items():
             func = getattr(self.contract.functions, func_name)
 
             try:
-                if func_name in func_args_map:
-                    args = func_args_map[func_name]
+                # ✅ Fix argument unpacking
+                if args:
                     tx_hash = func(*args).transact({"from": account})
                     tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
                     print(f"✅ Function {func_name} executed successfully.")
@@ -91,25 +89,28 @@ class Node:
         return results
 
 
+
 class Evaluator:
     def __init__(self, nodeA: Node, nodeB: Node):
         self.nodeA = nodeA
         self.nodeB = nodeB
 
     def evaluate_contracts(self):
-        functions_with_argsA = get_functions_with_args(self.nodeA.contract)
-        print("Functions with arguments:", functions_with_argsA)
+        """Only evaluate functions that return a value."""
+        functions_with_returnA = get_functions_with_return_values(self.nodeA.contract)
+        print("Functions with return values:", functions_with_returnA)
 
         resultA = {}
-        for func_name, args in functions_with_argsA.items():
+        for func_name, args in functions_with_returnA.items():
             resultA[func_name] = self.nodeA.execute_contract({func_name: generate_based_on_args(args)})
 
         resultB = {}
-        functions_with_argsB = get_functions_with_args(self.nodeB.contract)
-        for func_name, args in functions_with_argsB.items():
+        functions_with_returnB = get_functions_with_return_values(self.nodeB.contract)
+        for func_name, args in functions_with_returnB.items():
             resultB[func_name] = self.nodeB.execute_contract({func_name: generate_based_on_args(args)})
 
         return resultA, resultB
+
 
     def compare_results(self, valueA, valueB):
         """ Compare results and return a similarity score (0-1), ignoring Ethereum addresses. """
@@ -153,7 +154,7 @@ class Evaluator:
             if func_name in resultB:
                 score = self.compare_results(resultA[func_name], resultB[func_name])
                 total_score += score
-
+        print("function_count", function_count)
         return (total_score / function_count) * 100 if function_count > 0 else 0  # ✅ Percentage-based score
 
 
@@ -169,6 +170,17 @@ def get_functions_with_args(contract):
 
     return functions_with_args
 
+def get_functions_with_return_values(contract):
+    """Get functions that return a value (skip void functions)."""
+    functions_with_return = {}
+
+    for func_abi in contract.abi:
+        if func_abi["type"] == "function" and func_abi.get("outputs", []):  # ✅ Skip void functions
+            func_name = func_abi["name"]
+            arg_details = [(inp["name"], inp["type"]) for inp in func_abi["inputs"]]
+            functions_with_return[func_name] = arg_details  # ✅ Keep only functions that return a value
+
+    return functions_with_return
 
 
 def generate_based_on_args(args):

@@ -12,4 +12,15 @@ contract Sample2 {
         value = _value;
     }
 
+    function getValue() public view returns (uint) {
+        return value;
+    }
+
+    function addValue(uint _value) public {
+        value += _value;
+    }
+
+    function getValues() public view returns (uint, uint) {
+        return (value, value + 1);
+    }
 }
