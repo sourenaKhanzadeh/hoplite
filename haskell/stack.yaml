@@ -1,4 +1,17 @@
-resolver: lts-20.26  # Adjust to a working LTS version
+resolver: ghc-9.10.1  # Tell Stack to use system-installed GHC
+
+packages:
+  - .
+
 extra-deps:
-  - sbv-10.10
-  - libBF-0.6.8@sha256:076f8dc0d33299c40afa2d0bfe51e93420c9c3e326ebfcac4f0e856152aa4f87,2503
+
+flags: {}
+
+extra-package-dbs: []
+
+ghc-options:
+  "$everything": -Wall
+
+system-ghc: false
+compiler: ghc-9.10.1
+compiler-check: match-exact
