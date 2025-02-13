@@ -2,8 +2,22 @@ name:                hoplite
 version:             0.1.0.0
 cabal-version:       >=1.10
 build-type:          Simple
+author:              "Sourena Khanzadeh"
+maintainer:          "sourena.khanzadeh@gmail.com"
+stability:           experimental
+category:            Development
+homepage:            https://github.com/sourena-khanzadeh/hoplite
+synopsis:            Hoplite is a tool for comparing two Haskell programs.
 
 executable hoplite
+  other-modules:       ParseSolidity
   main-is:             Main.hs
-  build-depends:       base >=4.7 && <5
+  build-depends:
+                      base >=4.7 && <5,
+                      process,
+                      aeson,
+                      text,
+                      containers
+
+  hs-source-dirs:      src
   default-language:    Haskell2010

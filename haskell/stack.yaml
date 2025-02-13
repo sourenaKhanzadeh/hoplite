@@ -1,3 +1,4 @@
-resolver: lts-18.0
-packages:
-- .
+resolver: lts-20.26  # Adjust to a working LTS version
+extra-deps:
+  - sbv-10.10
+  - libBF-0.6.8@sha256:076f8dc0d33299c40afa2d0bfe51e93420c9c3e326ebfcac4f0e856152aa4f87,2503
