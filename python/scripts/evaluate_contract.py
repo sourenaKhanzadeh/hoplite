@@ -3,20 +3,25 @@ import random
 import string
 import pathlib
 import re
+import sys
+
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
+
+from utils.big_numbers import CompareBigDigits
 from difflib import SequenceMatcher
 import solcx
 from web3 import Web3
 from eth_utils import to_checksum_address, is_address
 
 class Node:
-    def __init__(self, contract_source: pathlib.Path, constructor_args=[]):
+    def __init__(self, contract_source: pathlib.Path, constructor_args=[], version="0.8.0"):
         # ✅ Connect to Ethereum Node (Ganache, Hardhat, Anvil)
         self.w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
         assert self.w3.is_connected(), "Web3 connection failed"
 
         # ✅ Install Solidity Compiler
-        solcx.install_solc("0.8.0")
-        solcx.set_solc_version("0.8.0")
+        solcx.install_solc(version)
+        solcx.set_solc_version(version)
 
         # ✅ Read Solidity Contract
         with open(contract_source, "r") as f:
@@ -98,34 +103,52 @@ class Evaluator:
     def evaluate_contracts(self):
         """Only evaluate functions that return a value."""
         functions_with_returnA = get_functions_with_return_values(self.nodeA.contract)
+        functions_without_returnA = get_functions_without_return_values(self.nodeA.contract)
         print("Functions with return values:", functions_with_returnA)
+        print("Functions without return values:", functions_without_returnA)
 
         resultA = {}
+        get_args = {}
+        for func_name, args in functions_without_returnA.items():
+            get_args[func_name] = generate_based_on_args(args)
+            self.nodeA.execute_contract({func_name: get_args[func_name]})
+
         for func_name, args in functions_with_returnA.items():
-            resultA[func_name] = self.nodeA.execute_contract({func_name: generate_based_on_args(args)})
+            get_args[func_name] = generate_based_on_args(args)
+            resultA[func_name] = self.nodeA.execute_contract({func_name: get_args[func_name]})
 
         resultB = {}
         functions_with_returnB = get_functions_with_return_values(self.nodeB.contract)
+        functions_without_returnB = get_functions_without_return_values(self.nodeB.contract)
+        for func_name, args in functions_without_returnB.items():
+            self.nodeB.execute_contract({func_name: get_args[func_name]})
+        
         for func_name, args in functions_with_returnB.items():
-            resultB[func_name] = self.nodeB.execute_contract({func_name: generate_based_on_args(args)})
+            resultB[func_name] = self.nodeB.execute_contract({func_name: get_args[func_name]})
+
 
         return resultA, resultB
 
 
     def compare_results(self, valueA, valueB):
-        """ Compare results and return a similarity score (0-1), ignoring Ethereum addresses. """
+        """ Compare results and return a similarity score (0-1), allowing partial numerical matches. """
 
-        if is_address(valueA) and is_address(valueB):
-            return 1.0  # ✅ Ignore address differences (full score)
+        # ✅ Extract return values from execution results if they exist
+        if isinstance(valueA, dict):
+            valueA = valueA[list(valueA.keys())[0]]
+        if isinstance(valueB, dict):
+            valueB = valueB[list(valueB.keys())[0]]
 
-        if valueA == valueB:
-            return 1.0  # ✅ Exact match = full points
+        # if is_address(valueA) and is_address(valueB):
+            # return 1.0  # ✅ Ignore address differences (full score)
 
-        elif isinstance(valueA, (int, float)) and isinstance(valueB, (int, float)):
-            # ✅ Proportional scoring for numbers
-            max_value = max(abs(valueA), abs(valueB), 1)  # Avoid division by zero
-            difference = abs(valueA - valueB)
-            return max(0, 1 - (difference / max_value))  # Closer numbers get higher scores
+        
+
+        if isinstance(valueA, (int, float)) and isinstance(valueB, (int, float)):
+            ans = CompareBigDigits(valueA, valueB)
+            result = ans.exec()
+            return 1.0 if result == 0 else 0.0
+            
 
         elif isinstance(valueA, str) and isinstance(valueB, str):
             # ✅ Use string similarity for fuzzy matching
@@ -135,15 +158,19 @@ class Evaluator:
             return 1.0 if valueA == valueB else 0.0  # ✅ Boolean exact match
 
         elif isinstance(valueA, list) and isinstance(valueB, list):
-            # ✅ Compare lists element-wise, ignoring addresses inside lists
+            # ✅ Compare lists element-wise, allowing for numerical differences
             min_length = min(len(valueA), len(valueB))
             max_length = max(len(valueA), len(valueB), 1)  # Avoid division by zero
             element_scores = [
                 self.compare_results(valueA[i], valueB[i]) for i in range(min_length)
             ]
             return sum(element_scores) / max_length  # Average similarity score
+        
+        elif valueA == valueB:
+            return 1.0  # ✅ Exact match = full points
 
         return 0  # ❌ Completely different types → No match
+
 
     def eval_score(self):
         resultA, resultB = self.evaluate_contracts()
@@ -182,6 +209,15 @@ def get_functions_with_return_values(contract):
 
     return functions_with_return
 
+
+def get_functions_without_return_values(contract):
+    functions_without_return = {}
+    for func_abi in contract.abi:
+        if func_abi["type"] == "function" and not func_abi.get("outputs", []):
+            func_name = func_abi["name"]
+            arg_details = [(inp["name"], inp["type"]) for inp in func_abi["inputs"]]
+            functions_without_return[func_name] = arg_details
+    return functions_without_return
 
 def generate_based_on_args(args):
     generated_args = []

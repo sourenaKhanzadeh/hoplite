@@ -21,6 +21,6 @@ contract Sample1 {
     }
 
     function getValues() public view returns (uint, uint) {
-        return (value, value + 2);
+        return (value, value + 1);
     }
 }
