@@ -2,13 +2,14 @@
 pragma solidity ^0.8.0;
 
 contract Sample2 {
-    string public name;
+    uint public value;
 
-    constructor(string memory _name) {
-        name = _name;
+    constructor(uint _value) {
+        value = _value;
     }
 
-    function updateName(string memory _name) public {
-        name = _name;
+    function setValue(uint _value) public {
+        value = _value;
     }
+
 }
