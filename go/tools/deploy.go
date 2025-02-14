@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/ecdsa"
@@ -8,7 +9,9 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -173,4 +176,33 @@ func (c *Contract) DeployContract(client *ethclient.Client, privateKey *ecdsa.Pr
 
 	// Return contract address & transaction
 	return address, tx, nil
+}
+
+// GetContractName extracts the contract name from a Solidity source file.
+func GetContractName(solFilePath string) (string, error) {
+	file, err := os.Open(solFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open Solidity file: %v", err)
+	}
+	defer file.Close()
+
+	// ✅ Regex to match `contract ContractName {`
+	re := regexp.MustCompile(`(?i)\bcontract\s+([a-zA-Z0-9_]+)\s*\{`)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// ✅ Match contract declaration
+		matches := re.FindStringSubmatch(line)
+		if len(matches) > 1 {
+			return matches[1], nil // ✅ Return contract name
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("error reading Solidity file: %v", err)
+	}
+
+	return "", fmt.Errorf("no contract name found in file")
 }

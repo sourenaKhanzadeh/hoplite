@@ -15,39 +15,78 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func (c *Contract) ExecuteAllFunctions(solFile string, client *ethclient.Client, privateKey *ecdsa.PrivateKey, contractAddress common.Address) {
+func (c *Contract) ExecuteAllFunctions(solFile string, client *ethclient.Client, privateKey *ecdsa.PrivateKey, contractAddress common.Address, defaultArgs map[string][]interface{}) ([]interface{}, map[string][]interface{}, error) {
 	functions := ExtractFunctions(solFile)
-	re := regexp.MustCompile(`\(([^)]+)\)`) // Regex to extract argument types
+	re := regexp.MustCompile(`\(([^)]+)\)`) // Extract argument types
 
-	for _, function := range functions {
-		functionName := strings.TrimSpace(strings.Split(function, "(")[0]) // ✅ Trim spaces
-		var args []interface{}                                             // ✅ Use slice for multiple arguments
+	var allArgs map[string][]interface{} = make(map[string][]interface{})
+	var values []interface{} // Store return values
 
-		matches := re.FindStringSubmatch(function)
-		if len(matches) > 1 {
-			argTypes := strings.Split(matches[1], ",") // ✅ Handle multiple arguments
-
-			for _, argType := range argTypes {
-				arg := GenerateRandomValue(strings.TrimSpace(argType)) // ✅ Fix: Trim whitespace
-				args = append(args, arg)
-				fmt.Printf("✅ Function: %s, Arg Type: %s, Arg Value: %v\n", functionName, argType, arg)
+	fmt.Printf("✅ Default Args: %v\n", defaultArgs)
+	if len(defaultArgs) > 0 {
+		for functionName, args := range defaultArgs {
+			allArgs[functionName] = args
+			if isViewFunction(functionName) {
+				result, err := c.GetFunctionValue(client, contractAddress, functionName, args...)
+				if err != nil {
+					log.Printf("Function execution failed: %v", err)
+				} else {
+					flattenedResult := FlattenValues(result)
+					values = append(values, flattenedResult...)
+				}
+			} else {
+				tx, err := c.ExecuteFunction(client, privateKey, contractAddress, functionName, args...)
+				if err != nil {
+					log.Printf("Transaction execution failed: %v", err)
+				} else {
+					log.Printf("✅ Transaction sent for function %s! TX Hash: %s\n", functionName, tx.Hash().Hex())
+				}
 			}
 		}
+	} else {
+		for _, function := range functions {
+			functionName := strings.TrimSpace(strings.Split(function, "(")[0]) // ✅ Trim spaces
+			args := []interface{}{}                                            // ✅ Reset args for each function
 
-		// ✅ Distinguish between `view` and `state-changing` functions
-		if isViewFunction(functionName) {
-			value, err := c.GetFunctionValue(client, contractAddress, functionName, args...)
-			if err != nil {
-				log.Fatalf("Function execution failed: %v", err)
+			// Generate arguments if none were provided
+			matches := re.FindStringSubmatch(function)
+			if len(matches) > 1 {
+				argTypes := strings.Split(matches[1], ",") // ✅ Handle multiple arguments
+				for _, argType := range argTypes {
+					arg := GenerateRandomValue(strings.TrimSpace(argType)) // ✅ Trim whitespace
+					args = append(args, arg)
+					fmt.Printf("✅ Function: %s, Arg Type: %s, Arg Value: %v\n", functionName, argType, arg)
+				}
 			}
-			log.Printf("✅ Function %s executed! Value: %v\n", functionName, value)
-		} else {
-			tx, err := c.ExecuteFunction(client, privateKey, contractAddress, functionName, args...)
-			if err != nil {
-				log.Fatalf("Transaction execution failed: %v", err)
+			allArgs[functionName] = args // ✅ Store generated args for reuse
+
+			if isViewFunction(functionName) {
+				result, err := c.GetFunctionValue(client, contractAddress, functionName, args...)
+				if err != nil {
+					log.Printf("Function execution failed: %v", err)
+				} else {
+					flattenedResult := FlattenValues(result)
+					values = append(values, flattenedResult...)
+				}
+			} else {
+				tx, err := c.ExecuteFunction(client, privateKey, contractAddress, functionName, args...)
+				if err != nil {
+					log.Printf("Transaction execution failed: %v", err)
+				} else {
+					log.Printf("✅ Transaction sent for function %s! TX Hash: %s\n", functionName, tx.Hash().Hex())
+				}
 			}
-			log.Printf("✅ Transaction sent for function %s! TX Hash: %s\n", functionName, tx.Hash().Hex())
 		}
+	}
+	return values, allArgs, nil
+}
+
+func FlattenValues(value interface{}) []interface{} {
+	switch v := value.(type) {
+	case []interface{}:
+		return v
+	default:
+		return []interface{}{v}
 	}
 }
 
