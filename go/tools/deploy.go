@@ -29,8 +29,9 @@ type SolidityCompilationOutput struct {
 
 // Contract struct holds ABI & Bytecode in memory
 type Contract struct {
-	ABI      abi.ABI
-	Bytecode []byte
+	ABI        abi.ABI
+	Bytecode   []byte
+	Transactor *bind.BoundContract
 }
 
 // NewContract compiles a Solidity contract and extracts ABI & Bytecode
@@ -75,6 +76,64 @@ func NewContract(solFilePath string, contractName string) (*Contract, error) {
 		ABI:      parsedABI,
 		Bytecode: bytecode,
 	}, nil
+}
+
+// ✅ Fixed: Execute smart contract function on a deployed contract
+func (c *Contract) ExecuteFunction(client *ethclient.Client, privateKey *ecdsa.PrivateKey, contractAddress common.Address, functionName string, args ...interface{}) (*types.Transaction, error) {
+	// Create a transactor
+	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337)) // Ganache Chain ID
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transactor: %v", err)
+	}
+
+	// Get nonce **from sender's account**, NOT from the contract
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nonce: %v", err)
+	}
+
+	auth.Nonce = big.NewInt(int64(nonce))
+	auth.Value = big.NewInt(0)              // No ETH sent
+	auth.GasLimit = uint64(3000000)         // Gas limit
+	auth.GasPrice = big.NewInt(20000000000) // Set low gas price (20 Gwei)
+
+	// ✅ Fixed: Ensure `Transactor` is properly initialized before calling `Transact()`
+	if c.Transactor == nil {
+		c.Transactor = bind.NewBoundContract(contractAddress, c.ABI, client, client, client)
+	}
+
+	// ✅ Call contract function
+	tx, err := c.Transactor.Transact(auth, functionName, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute function: %v", err)
+	}
+
+	return tx, nil
+}
+
+func (c *Contract) GetFunctionValue(client *ethclient.Client, contractAddress common.Address, functionName string, args ...interface{}) (*big.Int, error) {
+	// ✅ Ensure Transactor is properly initialized
+	if c.Transactor == nil {
+		c.Transactor = bind.NewBoundContract(contractAddress, c.ABI, client, client, client)
+	}
+
+	// ✅ Prepare call options (Read-Only Call)
+	callOpts := &bind.CallOpts{
+		Pending: false,
+		From:    contractAddress, // Any address works for read functions
+	}
+
+	// ✅ Allocate a variable to store function output
+	var result *big.Int
+
+	// ✅ Call the contract function correctly
+	err := c.Transactor.Call(callOpts, &[]interface{}{&result}, functionName, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call function %s: %v", functionName, err)
+	}
+
+	return result, nil
 }
 
 // DeployContract deploys a smart contract with constructor arguments

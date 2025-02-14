@@ -35,4 +35,17 @@ func main() {
 	log.Printf("✅ Contract deployed at: %s", address.Hex())
 	log.Printf("📌 Transaction hash: %s", tx.Hash().Hex())
 
+	tx, err = contract.ExecuteFunction(client, privateKey, address, "setValue", big.NewInt(100))
+	if err != nil {
+		log.Fatalf("Function execution failed: %v", err)
+	}
+
+	log.Printf("✅ Function executed! TX Hash: %s\n", tx.Hash().Hex())
+
+	value, err := contract.GetFunctionValue(client, address, "getValue")
+	if err != nil {
+		log.Fatalf("Function execution failed: %v", err)
+	}
+
+	log.Printf("💰 Function value: %s", value)
 }
