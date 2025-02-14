@@ -2,3 +2,6 @@ hoplite-venv/
 __pycache__/
 dist-newstyle/
 .stack-work/
+cache/
+out/
+build/
