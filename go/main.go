@@ -51,4 +51,6 @@ func main() {
 
 	functions := tools.ExtractFunctions("../contracts/sample1.sol")
 	log.Printf("💰 Functions: %v", functions)
+
+	contract.ExecuteAllFunctions("../contracts/sample1.sol", client, privateKey, address)
 }

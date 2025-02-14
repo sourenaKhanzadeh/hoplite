@@ -112,7 +112,7 @@ func (c *Contract) ExecuteFunction(client *ethclient.Client, privateKey *ecdsa.P
 	return tx, nil
 }
 
-func (c *Contract) GetFunctionValue(client *ethclient.Client, contractAddress common.Address, functionName string, args ...interface{}) (*big.Int, error) {
+func (c *Contract) GetFunctionValue(client *ethclient.Client, contractAddress common.Address, functionName string, args ...interface{}) ([]interface{}, error) {
 	// ✅ Ensure Transactor is properly initialized
 	if c.Transactor == nil {
 		c.Transactor = bind.NewBoundContract(contractAddress, c.ABI, client, client, client)
@@ -124,11 +124,11 @@ func (c *Contract) GetFunctionValue(client *ethclient.Client, contractAddress co
 		From:    contractAddress, // Any address works for read functions
 	}
 
-	// ✅ Allocate a variable to store function output
-	var result *big.Int
+	// ✅ Use a slice to store multiple return values
+	var result []interface{}
 
-	// ✅ Call the contract function correctly
-	err := c.Transactor.Call(callOpts, &[]interface{}{&result}, functionName, args...)
+	// ✅ Call contract function correctly
+	err := c.Transactor.Call(callOpts, &result, functionName, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call function %s: %v", functionName, err)
 	}
