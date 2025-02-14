@@ -48,4 +48,7 @@ func main() {
 	}
 
 	log.Printf("💰 Function value: %s", value)
+
+	functions := tools.ExtractFunctions("../contracts/sample1.sol")
+	log.Printf("💰 Functions: %v", functions)
 }

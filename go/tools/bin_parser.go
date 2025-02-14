@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -64,4 +65,23 @@ func ExtractOpcodes(solFile string) []string {
 		return []string{}
 	}
 	return strings.Split(string(output), "\n")
+}
+
+func ExtractFunctions(solFile string) []string {
+	output, err := exec.Command("solc", "--hashes", solFile).Output()
+	if err != nil {
+		fmt.Println("Error extracting functions:", err)
+		return []string{}
+	}
+	functions := strings.Split(string(output), "\n")
+	var names []string
+	// regex to filter functions start with 0x and not start with 0x0
+	re := regexp.MustCompile(`^([A-Fa-f0-9]+): ([A-Za-z()0-9])+`)
+	for _, function := range functions {
+		if !re.MatchString(function) {
+			continue
+		}
+		names = append(names, strings.Split(function, ":")[1])
+	}
+	return names
 }
