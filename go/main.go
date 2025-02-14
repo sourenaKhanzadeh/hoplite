@@ -1,19 +1,38 @@
 package main
 
 import (
+	"log"
+	"math/big"
+
 	"hoplite/tools"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 func main() {
-	// Extract bytecode for both contracts
-	opcodesA := tools.ExtractOpcodes("../contracts/sample1.sol")
-	opcodesB := tools.ExtractOpcodes("../contracts/sample2.sol")
+	client, err := ethclient.Dial("http://127.0.0.1:7545") // Connect to Ganache
+	if err != nil {
+		log.Fatalf("Failed to connect to Ganache: %v", err)
+	}
 
-	// Extract opcodes (storage & computation operations)
-	storageOpsA, _ := tools.ExtractStorageOps(opcodesA)
-	storageOpsB, _ := tools.ExtractStorageOps(opcodesB)
+	privateKey, err := crypto.HexToECDSA("04394c7e02e0bcf4edafe448be57bffa047b17f2d2f1728dd200540d9d832108")
+	if err != nil {
+		log.Fatalf("Failed to load private key: %v", err)
+	}
 
-	// Compare contract logic using Z3
-	// Compare contract logic using Z3
-	tools.CompareContracts(storageOpsA, storageOpsB)
+	contract, err := tools.NewContract("../contracts/sample1.sol", "Sample1")
+	if err != nil {
+		log.Fatalf("Failed to create contract: %v", err)
+	}
+
+	// Deploy contract to Ganache
+	address, tx, err := contract.DeployContract(client, privateKey, big.NewInt(100))
+	if err != nil {
+		log.Fatalf("Deployment failed: %v", err)
+	}
+
+	log.Printf("✅ Contract deployed at: %s", address.Hex())
+	log.Printf("📌 Transaction hash: %s", tx.Hash().Hex())
+
 }
