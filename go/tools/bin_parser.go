@@ -58,15 +58,6 @@ func ExtractFunctionSignatures(bytecode string) []string {
 	return selectors
 }
 
-func ExtractOpcodes(solFile string) []string {
-	output, err := exec.Command("solc", "--opcodes", solFile).Output()
-	if err != nil {
-		fmt.Println("Error extracting opcodes:", err)
-		return []string{}
-	}
-	return strings.Split(string(output), "\n")
-}
-
 func ExtractFunctions(solFile string) []string {
 	output, err := exec.Command("solc", "--hashes", solFile).Output()
 	if err != nil {

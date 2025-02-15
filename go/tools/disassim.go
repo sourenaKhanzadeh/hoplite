@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -19,4 +21,13 @@ func ExtractStorageOps(opcodes []string) ([]string, error) {
 	}
 
 	return storageOps, nil
+}
+
+func ExtractOpcodes(solFile string) []string {
+	output, err := exec.Command("solc", "--opcodes", solFile).Output()
+	if err != nil {
+		fmt.Println("Error extracting opcodes:", err)
+		return []string{}
+	}
+	return strings.Split(string(output), "\n")
 }
